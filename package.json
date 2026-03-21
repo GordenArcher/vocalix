@@ -1,0 +1,18 @@
+{
+  "name": "vocalix",
+  "version": "1.0.0",
+  "description": "Highlight anything. Hear everything.",
+  "author": "GordenArcher",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite build --watch",
+    "build": "vite build"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.268",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.4.0",
+    "vite": "^5.2.0",
+    "vite-plugin-web-extension": "^4.1.1"
+  }
+}
