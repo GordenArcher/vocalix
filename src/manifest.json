@@ -4,9 +4,9 @@
   "version": "1.0.0",
   "description": "Highlight anything. Hear everything.",
   "icons": {
-    "16": "public/icons/icon16.png",
-    "48": "public/icons/icon48.png",
-    "128": "public/icons/icon128.png"
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
   },
   "permissions": ["storage", "contextMenus", "scripting", "tabs"],
   "host_permissions": ["<all_urls>"],
@@ -26,8 +26,8 @@
     "default_popup": "popup/index.html",
     "default_title": "Vocalix",
     "default_icon": {
-      "16": "public/icons/icon16.png",
-      "48": "public/icons/icon48.png"
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png"
     }
   },
   "options_ui": {
@@ -42,6 +42,10 @@
     "stop-reading": {
       "suggested_key": { "default": "Alt+S" },
       "description": "Stop reading"
+    },
+    "pause-resume": {
+      "suggested_key": { "default": "Alt+P" },
+      "description": "Pause or resume reading"
     }
   }
 }

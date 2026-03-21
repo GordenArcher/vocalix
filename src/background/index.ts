@@ -29,8 +29,7 @@ chrome.commands.onCommand.addListener(async (command) => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) return;
 
-  const message =
-    command === "read-selection" ? { type: "READ_TEXT" } : { type: "STOP" };
-
-  sendToTab(tab.id, message);
+  if (command === "read-selection") sendToTab(tab.id, { type: "READ_TEXT" });
+  if (command === "stop-reading") sendToTab(tab.id, { type: "STOP" });
+  if (command === "pause-resume") sendToTab(tab.id, { type: "PAUSE_RESUME" });
 });

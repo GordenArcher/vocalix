@@ -1,5 +1,6 @@
-let button: HTMLButtonElement | null = null;
+let container: HTMLDivElement | null = null;
 let isPlaying = false;
+let isPaused = false;
 let autoRead = false;
 let highlightWordsEnabled = true;
 
@@ -19,56 +20,76 @@ chrome.storage.onChanged.addListener((changes) => {
 let highlightedSpans: HTMLElement[] = [];
 let originalRange: Range | null = null;
 
-function getOrCreateButton(): HTMLButtonElement {
-  if (button) return button;
+function getOrCreateContainer(): HTMLDivElement {
+  if (container) return container;
 
-  button = document.createElement("button");
-  button.id = "vocalix-btn";
-  button.textContent = "▶ Read";
-  document.body.appendChild(button);
+  container = document.createElement("div");
+  container.id = "vocalix-container";
+  document.body.appendChild(container);
 
-  button.addEventListener("click", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (isPlaying) {
-      stopReading();
-    } else {
-      const text = window.getSelection()?.toString().trim();
-      if (text) startReading(text);
-    }
-  });
-
-  return button;
+  return container;
 }
 
-function showButton(x: number, y: number): void {
-  const btn = getOrCreateButton();
+function showContainer(x: number, y: number): void {
+  const c = getOrCreateContainer();
 
   const margin = 8;
   let left = x + margin;
   let top = y + margin;
 
-  if (left + 90 > window.innerWidth) left = x - 100;
-  if (top + 40 > window.innerHeight) top = y - 44;
+  if (left + 160 > window.innerWidth) left = x - 170;
+  if (top + 44 > window.innerHeight) top = y - 50;
 
-  btn.style.left = `${left}px`;
-  btn.style.top = `${top}px`;
-  btn.classList.add("vocalix-visible");
+  c.style.left = `${left}px`;
+  c.style.top = `${top}px`;
+  c.classList.add("vocalix-visible");
 }
 
-function hideButton(): void {
-  button?.classList.remove("vocalix-visible");
+function hideContainer(): void {
+  container?.classList.remove("vocalix-visible");
 }
 
-function setButtonState(playing: boolean): void {
-  if (!button) return;
-  if (playing) {
-    button.textContent = "⏹ Stop";
-    button.classList.add("vocalix-playing");
-  } else {
-    button.textContent = "▶ Read";
-    button.classList.remove("vocalix-playing");
+function renderButtons(state: "idle" | "playing" | "paused"): void {
+  const c = getOrCreateContainer();
+  c.innerHTML = "";
+
+  if (state === "idle") {
+    const playBtn = makeButton("▶ Read", "vocalix-btn-play", () => {
+      const text = window.getSelection()?.toString().trim();
+      if (text) startReading(text);
+    });
+    c.appendChild(playBtn);
+  } else if (state === "playing") {
+    const pauseBtn = makeButton("⏸ Pause", "vocalix-btn-pause", pauseReading);
+    const stopBtn = makeButton("⏹ Stop", "vocalix-btn-stop", stopReading);
+    c.appendChild(pauseBtn);
+    c.appendChild(stopBtn);
+  } else if (state === "paused") {
+    const resumeBtn = makeButton(
+      "▶ Resume",
+      "vocalix-btn-resume",
+      resumeReading,
+    );
+    const stopBtn = makeButton("⏹ Stop", "vocalix-btn-stop", stopReading);
+    c.appendChild(resumeBtn);
+    c.appendChild(stopBtn);
   }
+}
+
+function makeButton(
+  label: string,
+  className: string,
+  onClick: () => void,
+): HTMLButtonElement {
+  const btn = document.createElement("button");
+  btn.className = `vocalix-btn ${className}`;
+  btn.textContent = label;
+  btn.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onClick();
+  });
+  return btn;
 }
 
 function wrapWordsInRange(range: Range): HTMLElement[] {
@@ -99,7 +120,6 @@ function wrapWordsInRange(range: Range): HTMLElement[] {
 
 function highlightWord(index: number): void {
   highlightedSpans.forEach((s) => s.classList.remove("vocalix-word-active"));
-
   if (index >= 0 && index < highlightedSpans.length) {
     highlightedSpans[index].classList.add("vocalix-word-active");
     highlightedSpans[index].scrollIntoView({
@@ -125,6 +145,8 @@ function cleanupHighlights(): void {
 }
 
 function startReading(text: string): void {
+  if (isPlaying || isPaused) return;
+
   window.speechSynthesis.cancel();
 
   const selection = window.getSelection();
@@ -161,7 +183,8 @@ function startReading(text: string): void {
 
     utterance.onstart = () => {
       isPlaying = true;
-      setButtonState(true);
+      isPaused = false;
+      renderButtons("playing");
 
       const entry = {
         id: Date.now().toString(),
@@ -169,8 +192,8 @@ function startReading(text: string): void {
         url: location.href,
         timestamp: Date.now(),
       };
-      chrome.storage.local.get("history", (result) => {
-        const history = result.history || [];
+      chrome.storage.local.get("history", (r) => {
+        const history = r.history || [];
         const updated = [entry, ...history].slice(0, 50);
         chrome.storage.local.set({ history: updated });
       });
@@ -178,14 +201,16 @@ function startReading(text: string): void {
 
     utterance.onend = () => {
       isPlaying = false;
-      setButtonState(false);
-      hideButton();
+      isPaused = false;
+      renderButtons("idle");
+      hideContainer();
       cleanupHighlights();
     };
 
     utterance.onerror = () => {
       isPlaying = false;
-      setButtonState(false);
+      isPaused = false;
+      renderButtons("idle");
       cleanupHighlights();
     };
 
@@ -196,9 +221,22 @@ function startReading(text: string): void {
 function stopReading(): void {
   window.speechSynthesis.cancel();
   isPlaying = false;
-  setButtonState(false);
-  hideButton();
+  isPaused = false;
+  renderButtons("idle");
+  hideContainer();
   cleanupHighlights();
+}
+
+function pauseReading(): void {
+  window.speechSynthesis.pause();
+  isPaused = true;
+  renderButtons("paused");
+}
+
+function resumeReading(): void {
+  window.speechSynthesis.resume();
+  isPaused = false;
+  renderButtons("playing");
 }
 
 chrome.runtime.onMessage.addListener(
@@ -207,20 +245,25 @@ chrome.runtime.onMessage.addListener(
       const text = message.payload || window.getSelection()?.toString().trim();
       if (text) startReading(text);
     }
-
-    if (message.type === "STOP") {
-      stopReading();
+    if (message.type === "STOP") stopReading();
+    if (message.type === "PAUSE") pauseReading();
+    if (message.type === "RESUME") resumeReading();
+    if (message.type === "PAUSE_RESUME") {
+      if (isPaused) resumeReading();
+      else if (isPlaying) pauseReading();
     }
   },
 );
 
 document.addEventListener("mouseup", () => {
   setTimeout(() => {
+    if (isPlaying || isPaused) return;
+
     const selection = window.getSelection();
     const text = selection?.toString().trim();
 
     if (!text || text.length < 2) {
-      if (!isPlaying) hideButton();
+      hideContainer();
       return;
     }
 
@@ -230,14 +273,15 @@ document.addEventListener("mouseup", () => {
     if (autoRead) {
       startReading(text);
     } else {
-      showButton(rect.right, rect.bottom);
+      renderButtons("idle");
+      showContainer(rect.right, rect.bottom);
     }
   }, 50);
 });
 
 document.addEventListener("mousedown", (e) => {
   const target = e.target as HTMLElement;
-  if (target.id !== "vocalix-btn" && !isPlaying) {
-    hideButton();
+  if (!target.closest("#vocalix-container") && !isPlaying && !isPaused) {
+    hideContainer();
   }
 });
