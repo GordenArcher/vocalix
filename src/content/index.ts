@@ -1,4 +1,5 @@
 let button: HTMLButtonElement | null = null;
+let isPlaying = false;
 
 function getOrCreateButton(): HTMLButtonElement {
   if (button) return button;
@@ -11,8 +12,12 @@ function getOrCreateButton(): HTMLButtonElement {
   button.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
-
-    console.log("Vocalix: read button clicked");
+    if (isPlaying) {
+      stopReading();
+    } else {
+      const text = window.getSelection()?.toString().trim();
+      if (text) startReading(text);
+    }
   });
 
   return button;
@@ -37,13 +42,56 @@ function hideButton(): void {
   button?.classList.remove("vocalix-visible");
 }
 
+function setButtonState(playing: boolean): void {
+  if (!button) return;
+  if (playing) {
+    button.textContent = "⏹ Stop";
+    button.classList.add("vocalix-playing");
+  } else {
+    button.textContent = "▶ Read";
+    button.classList.remove("vocalix-playing");
+  }
+}
+
+function startReading(text: string): void {
+  window.speechSynthesis.cancel();
+
+  const utterance = new SpeechSynthesisUtterance(text);
+
+  utterance.onstart = () => {
+    isPlaying = true;
+    setButtonState(true);
+  };
+
+  utterance.onend = () => {
+    isPlaying = false;
+    setButtonState(false);
+    hideButton();
+  };
+
+  utterance.onerror = () => {
+    isPlaying = false;
+    setButtonState(false);
+  };
+
+  window.speechSynthesis.speak(utterance);
+}
+
+function stopReading(): void {
+  window.speechSynthesis.cancel();
+  isPlaying = false;
+  setButtonState(false);
+  hideButton();
+}
+
+// Show button when text is selected
 document.addEventListener("mouseup", () => {
   setTimeout(() => {
     const selection = window.getSelection();
     const text = selection?.toString().trim();
 
     if (!text || text.length < 2) {
-      hideButton();
+      if (!isPlaying) hideButton();
       return;
     }
 
@@ -56,7 +104,7 @@ document.addEventListener("mouseup", () => {
 
 document.addEventListener("mousedown", (e) => {
   const target = e.target as HTMLElement;
-  if (target.id !== "vocalix-btn") {
+  if (target.id !== "vocalix-btn" && !isPlaying) {
     hideButton();
   }
 });

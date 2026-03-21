@@ -34,3 +34,11 @@
 #vocalix-btn:active {
     transform: scale(0.96);
 }
+
+#vocalix-btn.vocalix-playing {
+    background: #dc2626;
+}
+
+#vocalix-btn.vocalix-playing:hover {
+    background: #b91c1c;
+}
