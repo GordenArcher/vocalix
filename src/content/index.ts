@@ -59,7 +59,7 @@ function setButtonState(playing: boolean): void {
 function wrapWordsInRange(range: Range): HTMLElement[] {
   const fragment = range.cloneContents();
   const text = fragment.textContent || "";
-  const words = text.split(/(\s+)/); // split but keep whitespace
+  const words = text.split(/(\s+)/);
 
   const spans: HTMLElement[] = [];
   const wrapper = document.createDocumentFragment();
@@ -147,6 +147,18 @@ function startReading(text: string): void {
     utterance.onstart = () => {
       isPlaying = true;
       setButtonState(true);
+
+      const entry = {
+        id: Date.now().toString(),
+        text: text.slice(0, 200),
+        url: location.href,
+        timestamp: Date.now(),
+      };
+      chrome.storage.local.get("history", (result) => {
+        const history = result.history || [];
+        const updated = [entry, ...history].slice(0, 50);
+        chrome.storage.local.set({ history: updated });
+      });
     };
 
     utterance.onend = () => {

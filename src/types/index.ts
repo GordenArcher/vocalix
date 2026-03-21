@@ -1,3 +1,10 @@
+export interface HistoryEntry {
+  id: string;
+  text: string;
+  url: string;
+  timestamp: number;
+}
+
 export interface SpeechSettings {
   voiceId: string;
   rate: number;

@@ -10,44 +10,64 @@
         <div class="container">
             <header>
                 <span class="logo">🔊 Vocalix</span>
+                <div class="tabs">
+                    <button class="tab active" data-tab="settings">
+                        Settings
+                    </button>
+                    <button class="tab" data-tab="history">History</button>
+                </div>
             </header>
 
-            <section class="field">
-                <label for="voice-select">Voice</label>
-                <select id="voice-select">
-                    <option value="">Loading voices...</option>
-                </select>
-            </section>
+            <div id="tab-settings">
+                <section class="field">
+                    <label for="voice-select">Voice</label>
+                    <select id="voice-select">
+                        <option value="">Loading voices...</option>
+                    </select>
+                </section>
 
-            <section class="field">
-                <label for="rate"
-                    >Speed <span id="rate-value">1.0</span>x</label
-                >
-                <input
-                    type="range"
-                    id="rate"
-                    min="0.5"
-                    max="2"
-                    step="0.1"
-                    value="1"
-                />
-            </section>
+                <section class="field">
+                    <label for="rate"
+                        >Speed <span id="rate-value">1.0</span>x</label
+                    >
+                    <input
+                        type="range"
+                        id="rate"
+                        min="0.5"
+                        max="2"
+                        step="0.1"
+                        value="1"
+                    />
+                </section>
 
-            <section class="field">
-                <label for="pitch"
-                    >Pitch <span id="pitch-value">1.0</span></label
-                >
-                <input
-                    type="range"
-                    id="pitch"
-                    min="0"
-                    max="2"
-                    step="0.1"
-                    value="1"
-                />
-            </section>
+                <section class="field">
+                    <label for="pitch"
+                        >Pitch <span id="pitch-value">1.0</span></label
+                    >
+                    <input
+                        type="range"
+                        id="pitch"
+                        min="0"
+                        max="2"
+                        step="0.1"
+                        value="1"
+                    />
+                </section>
 
-            <button id="save-btn">Save settings</button>
+                <button id="save-btn">Save settings</button>
+            </div>
+
+            <div id="tab-history" class="hidden">
+                <div class="history-header">
+                    <span class="history-count" id="history-count"
+                        >0 items</span
+                    >
+                    <button id="clear-btn">Clear all</button>
+                </div>
+                <ul id="history-list">
+                    <li class="empty">No history yet</li>
+                </ul>
+            </div>
         </div>
         <script type="module" src="./index.ts"></script>
     </body>
