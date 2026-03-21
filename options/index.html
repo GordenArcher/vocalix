@@ -2,10 +2,98 @@
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Vocalix — Settings</title>
+        <link rel="stylesheet" href="options.css" />
     </head>
     <body>
-        <p>Vocalix settings — coming soon</p>
+        <div class="container">
+            <header>
+                <h1>🔊 Vocalix <span>Settings</span></h1>
+            </header>
+
+            <section class="card">
+                <h2>Voice</h2>
+                <div class="field">
+                    <label for="voice-select">Default voice</label>
+                    <select id="voice-select">
+                        <option value="">Loading voices...</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="rate"
+                        >Speed <span id="rate-value">1.0</span>x</label
+                    >
+                    <input
+                        type="range"
+                        id="rate"
+                        min="0.5"
+                        max="2"
+                        step="0.1"
+                        value="1"
+                    />
+                </div>
+                <div class="field">
+                    <label for="pitch"
+                        >Pitch <span id="pitch-value">1.0</span></label
+                    >
+                    <input
+                        type="range"
+                        id="pitch"
+                        min="0"
+                        max="2"
+                        step="0.1"
+                        value="1"
+                    />
+                </div>
+            </section>
+
+            <section class="card">
+                <h2>Behaviour</h2>
+                <div class="field row">
+                    <div>
+                        <label for="auto-read">Auto-read on highlight</label>
+                        <p class="hint">
+                            Reads immediately when you select text — no button
+                            click needed
+                        </p>
+                    </div>
+                    <input type="checkbox" id="auto-read" />
+                </div>
+                <div class="field row">
+                    <div>
+                        <label for="highlight-words">Highlight words</label>
+                        <p class="hint">Highlights each word as it is spoken</p>
+                    </div>
+                    <input type="checkbox" id="highlight-words" checked />
+                </div>
+            </section>
+
+            <section class="card">
+                <h2>AI Voices <span class="badge">Coming soon</span></h2>
+                <div class="field">
+                    <label for="elevenlabs-key">ElevenLabs API key</label>
+                    <input
+                        type="password"
+                        id="elevenlabs-key"
+                        placeholder="sk-..."
+                        disabled
+                    />
+                </div>
+                <div class="field">
+                    <label for="google-key">Google TTS API key</label>
+                    <input
+                        type="password"
+                        id="google-key"
+                        placeholder="AIza..."
+                        disabled
+                    />
+                </div>
+            </section>
+
+            <button id="save-btn">Save settings</button>
+            <p id="saved-msg" class="hidden">Settings saved ✓</p>
+        </div>
         <script type="module" src="./index.ts"></script>
     </body>
 </html>

@@ -1,5 +1,20 @@
 let button: HTMLButtonElement | null = null;
 let isPlaying = false;
+let autoRead = false;
+let highlightWordsEnabled = true;
+
+chrome.storage.sync.get("settings", (result) => {
+  const settings = result.settings || {};
+  autoRead = settings.autoRead ?? false;
+  highlightWordsEnabled = settings.highlightWords ?? true;
+});
+
+chrome.storage.onChanged.addListener((changes) => {
+  if (changes.settings?.newValue) {
+    autoRead = changes.settings.newValue.autoRead ?? false;
+    highlightWordsEnabled = changes.settings.newValue.highlightWords ?? true;
+  }
+});
 
 let highlightedSpans: HTMLElement[] = [];
 let originalRange: Range | null = null;
@@ -113,7 +128,7 @@ function startReading(text: string): void {
   window.speechSynthesis.cancel();
 
   const selection = window.getSelection();
-  if (selection && !selection.isCollapsed) {
+  if (highlightWordsEnabled && selection && !selection.isCollapsed) {
     originalRange = selection.getRangeAt(0).cloneRange();
     try {
       highlightedSpans = wrapWordsInRange(selection.getRangeAt(0));
@@ -212,7 +227,11 @@ document.addEventListener("mouseup", () => {
     const range = selection!.getRangeAt(0);
     const rect = range.getBoundingClientRect();
 
-    showButton(rect.right, rect.bottom);
+    if (autoRead) {
+      startReading(text);
+    } else {
+      showButton(rect.right, rect.bottom);
+    }
   }, 50);
 });
 
