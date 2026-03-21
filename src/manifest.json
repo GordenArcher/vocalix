@@ -3,7 +3,12 @@
   "name": "Vocalix",
   "version": "1.0.0",
   "description": "Highlight anything. Hear everything.",
-  "permissions": ["storage", "contextMenus"],
+  "icons": {
+    "16": "public/icons/icon16.png",
+    "48": "public/icons/icon48.png",
+    "128": "public/icons/icon128.png"
+  },
+  "permissions": ["storage", "contextMenus", "scripting", "tabs"],
   "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "src/background/index.ts",
@@ -19,7 +24,11 @@
   ],
   "action": {
     "default_popup": "popup/index.html",
-    "default_title": "Vocalix"
+    "default_title": "Vocalix",
+    "default_icon": {
+      "16": "public/icons/icon16.png",
+      "48": "public/icons/icon48.png"
+    }
   },
   "options_ui": {
     "page": "options/index.html",
