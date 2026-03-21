@@ -42,3 +42,10 @@
 #vocalix-btn.vocalix-playing:hover {
     background: #b91c1c;
 }
+
+/* Word highlight follow-along */
+.vocalix-word-active {
+    background: rgba(234, 179, 8, 0.45);
+    border-radius: 3px;
+    padding: 0 1px;
+}

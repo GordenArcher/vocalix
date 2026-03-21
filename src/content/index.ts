@@ -1,6 +1,9 @@
 let button: HTMLButtonElement | null = null;
 let isPlaying = false;
 
+let highlightedSpans: HTMLElement[] = [];
+let originalRange: Range | null = null;
+
 function getOrCreateButton(): HTMLButtonElement {
   if (button) return button;
 
@@ -53,28 +56,114 @@ function setButtonState(playing: boolean): void {
   }
 }
 
+function wrapWordsInRange(range: Range): HTMLElement[] {
+  const fragment = range.cloneContents();
+  const text = fragment.textContent || "";
+  const words = text.split(/(\s+)/); // split but keep whitespace
+
+  const spans: HTMLElement[] = [];
+  const wrapper = document.createDocumentFragment();
+
+  words.forEach((part) => {
+    if (/^\s+$/.test(part)) {
+      wrapper.appendChild(document.createTextNode(part));
+    } else if (part.length > 0) {
+      const span = document.createElement("span");
+      span.className = "vocalix-word";
+      span.textContent = part;
+      wrapper.appendChild(span);
+      spans.push(span);
+    }
+  });
+
+  range.deleteContents();
+  range.insertNode(wrapper);
+
+  return spans;
+}
+
+function highlightWord(index: number): void {
+  highlightedSpans.forEach((s) => s.classList.remove("vocalix-word-active"));
+
+  if (index >= 0 && index < highlightedSpans.length) {
+    highlightedSpans[index].classList.add("vocalix-word-active");
+    highlightedSpans[index].scrollIntoView({
+      block: "nearest",
+      behavior: "smooth",
+    });
+  }
+}
+
+function cleanupHighlights(): void {
+  highlightedSpans.forEach((span) => {
+    const parent = span.parentNode;
+    if (parent) {
+      parent.replaceChild(
+        document.createTextNode(span.textContent || ""),
+        span,
+      );
+      parent.normalize();
+    }
+  });
+  highlightedSpans = [];
+  originalRange = null;
+}
+
 function startReading(text: string): void {
   window.speechSynthesis.cancel();
 
+  const selection = window.getSelection();
+  if (selection && !selection.isCollapsed) {
+    originalRange = selection.getRangeAt(0).cloneRange();
+    try {
+      highlightedSpans = wrapWordsInRange(selection.getRangeAt(0));
+    } catch {
+      highlightedSpans = [];
+    }
+  }
+
   const utterance = new SpeechSynthesisUtterance(text);
 
-  utterance.onstart = () => {
-    isPlaying = true;
-    setButtonState(true);
-  };
+  chrome.storage.sync.get("settings", (result) => {
+    const settings = result.settings || {};
 
-  utterance.onend = () => {
-    isPlaying = false;
-    setButtonState(false);
-    hideButton();
-  };
+    utterance.rate = settings.rate ?? 1.0;
+    utterance.pitch = settings.pitch ?? 1.0;
 
-  utterance.onerror = () => {
-    isPlaying = false;
-    setButtonState(false);
-  };
+    if (settings.voiceId) {
+      const voices = window.speechSynthesis.getVoices();
+      const match = voices.find((v) => v.voiceURI === settings.voiceId);
+      if (match) utterance.voice = match;
+    }
 
-  window.speechSynthesis.speak(utterance);
+    let wordIndex = 0;
+    utterance.onboundary = (e) => {
+      if (e.name === "word") {
+        highlightWord(wordIndex);
+        wordIndex++;
+      }
+    };
+
+    utterance.onstart = () => {
+      isPlaying = true;
+      setButtonState(true);
+    };
+
+    utterance.onend = () => {
+      isPlaying = false;
+      setButtonState(false);
+      hideButton();
+      cleanupHighlights();
+    };
+
+    utterance.onerror = () => {
+      isPlaying = false;
+      setButtonState(false);
+      cleanupHighlights();
+    };
+
+    window.speechSynthesis.speak(utterance);
+  });
 }
 
 function stopReading(): void {
@@ -82,6 +171,7 @@ function stopReading(): void {
   isPlaying = false;
   setButtonState(false);
   hideButton();
+  cleanupHighlights();
 }
 
 chrome.runtime.onMessage.addListener(
@@ -97,7 +187,6 @@ chrome.runtime.onMessage.addListener(
   },
 );
 
-// Show button when text is selected
 document.addEventListener("mouseup", () => {
   setTimeout(() => {
     const selection = window.getSelection();
