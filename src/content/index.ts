@@ -21,7 +21,13 @@ let highlightedSpans: HTMLElement[] = [];
 let originalRange: Range | null = null;
 
 function getOrCreateContainer(): HTMLDivElement {
-  if (container) return container;
+  const existing = document.getElementById(
+    "vocalix-container",
+  ) as HTMLDivElement;
+  if (existing) {
+    container = existing;
+    return existing;
+  }
 
   container = document.createElement("div");
   container.id = "vocalix-container";
