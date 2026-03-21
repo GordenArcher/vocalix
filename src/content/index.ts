@@ -84,6 +84,19 @@ function stopReading(): void {
   hideButton();
 }
 
+chrome.runtime.onMessage.addListener(
+  (message: { type: string; payload?: string }) => {
+    if (message.type === "READ_TEXT") {
+      const text = message.payload || window.getSelection()?.toString().trim();
+      if (text) startReading(text);
+    }
+
+    if (message.type === "STOP") {
+      stopReading();
+    }
+  },
+);
+
 // Show button when text is selected
 document.addEventListener("mouseup", () => {
   setTimeout(() => {
