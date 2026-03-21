@@ -8,6 +8,10 @@ const pitchInput = document.getElementById("pitch") as HTMLInputElement;
 const rateValue = document.getElementById("rate-value") as HTMLSpanElement;
 const pitchValue = document.getElementById("pitch-value") as HTMLSpanElement;
 const saveBtn = document.getElementById("save-btn") as HTMLButtonElement;
+const autoReadInput = document.getElementById("auto-read") as HTMLInputElement;
+const highlightWordsInput = document.getElementById(
+  "highlight-words",
+) as HTMLInputElement;
 
 const tabSettings = document.getElementById("tab-settings") as HTMLDivElement;
 const tabHistory = document.getElementById("tab-history") as HTMLDivElement;
@@ -41,6 +45,8 @@ chrome.storage.sync.get("settings", (result) => {
   pitchInput.value = String(settings.pitch);
   rateValue.textContent = String(settings.rate);
   pitchValue.textContent = String(settings.pitch);
+  autoReadInput.checked = settings.autoRead;
+  highlightWordsInput.checked = settings.highlightWords;
   loadVoices(settings.voiceId);
 });
 
@@ -65,22 +71,28 @@ function loadVoices(savedVoiceId: string = ""): void {
 rateInput.addEventListener("input", () => {
   rateValue.textContent = rateInput.value;
 });
-
 pitchInput.addEventListener("input", () => {
   pitchValue.textContent = pitchInput.value;
 });
 
 saveBtn.addEventListener("click", () => {
-  const settings: SpeechSettings = {
-    ...DEFAULT_SETTINGS,
-    voiceId: voiceSelect.value,
-    rate: parseFloat(rateInput.value),
-    pitch: parseFloat(pitchInput.value),
-  };
-
-  chrome.storage.sync.set({ settings }, () => {
-    saveBtn.textContent = "Saved ✓";
-    setTimeout(() => (saveBtn.textContent = "Save settings"), 1500);
+  chrome.storage.sync.get("settings", (result) => {
+    const existing: SpeechSettings = {
+      ...DEFAULT_SETTINGS,
+      ...(result.settings || {}),
+    };
+    const settings: SpeechSettings = {
+      ...existing,
+      voiceId: voiceSelect.value,
+      rate: parseFloat(rateInput.value),
+      pitch: parseFloat(pitchInput.value),
+      autoRead: autoReadInput.checked,
+      highlightWords: highlightWordsInput.checked,
+    };
+    chrome.storage.sync.set({ settings }, () => {
+      saveBtn.textContent = "Saved ✓";
+      setTimeout(() => (saveBtn.textContent = "Save settings"), 1500);
+    });
   });
 });
 
@@ -116,7 +128,6 @@ function loadHistory(): void {
           })();
           const snippet =
             entry.text.length > 80 ? entry.text.slice(0, 80) + "…" : entry.text;
-
           return `
           <li class="history-item">
             <p class="history-text">${snippet}</p>
@@ -130,7 +141,5 @@ function loadHistory(): void {
 }
 
 clearBtn.addEventListener("click", () => {
-  chrome.storage.local.remove("history", () => {
-    loadHistory();
-  });
+  chrome.storage.local.remove("history", () => loadHistory());
 });

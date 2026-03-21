@@ -114,6 +114,49 @@ input[type="range"] {
     background: #e4e4e7;
 }
 
+.field.row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.hint {
+    font-size: 11px;
+    color: #52525b;
+    margin-top: 2px;
+}
+
+input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    accent-color: #ffffff;
+    cursor: pointer;
+}
+
+#tab-options {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+#save-options-btn {
+    width: 100%;
+    padding: 9px;
+    background: #ffffff;
+    color: #18181b;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+#save-options-btn:hover {
+    background: #e4e4e7;
+}
 .history-header {
     display: flex;
     align-items: center;
