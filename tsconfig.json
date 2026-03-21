@@ -6,7 +6,7 @@
     "strict": true,
     "lib": ["ESNext", "DOM"],
     "types": ["chrome"],
-    "skipLibCheck": true
+    "skipLibCheck": true,
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*", "popup/**/*", "options/**/*", "popup", "options"],
 }

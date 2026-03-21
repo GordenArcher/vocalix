@@ -17,11 +17,11 @@
     }
   ],
   "action": {
-    "default_popup": "src/popup/index.html",
+    "default_popup": "popup/index.html",
     "default_title": "Vocalix"
   },
   "options_ui": {
-    "page": "src/options/index.html",
+    "page": "options/index.html",
     "open_in_tab": true
   },
   "commands": {
