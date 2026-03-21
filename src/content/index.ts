@@ -11,6 +11,7 @@ function getOrCreateButton(): HTMLButtonElement {
   button.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
+
     console.log("Vocalix: read button clicked");
   });
 
