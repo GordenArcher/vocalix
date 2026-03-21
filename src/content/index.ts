@@ -172,6 +172,7 @@ function startReading(text: string): void {
 
     utterance.rate = settings.rate ?? 1.0;
     utterance.pitch = settings.pitch ?? 1.0;
+    utterance.volume = settings.volume ?? 1.0;
 
     if (settings.voiceId) {
       const voices = window.speechSynthesis.getVoices();

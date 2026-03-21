@@ -5,8 +5,10 @@ const voiceSelect = document.getElementById(
 ) as HTMLSelectElement;
 const rateInput = document.getElementById("rate") as HTMLInputElement;
 const pitchInput = document.getElementById("pitch") as HTMLInputElement;
+const volumeInput = document.getElementById("volume") as HTMLInputElement;
 const rateValue = document.getElementById("rate-value") as HTMLSpanElement;
 const pitchValue = document.getElementById("pitch-value") as HTMLSpanElement;
+const volumeValue = document.getElementById("volume-value") as HTMLSpanElement;
 const saveBtn = document.getElementById("save-btn") as HTMLButtonElement;
 const autoReadInput = document.getElementById("auto-read") as HTMLInputElement;
 const highlightWordsInput = document.getElementById(
@@ -43,8 +45,10 @@ chrome.storage.sync.get("settings", (result) => {
   };
   rateInput.value = String(settings.rate);
   pitchInput.value = String(settings.pitch);
+  volumeInput.value = String(settings.volume);
   rateValue.textContent = String(settings.rate);
   pitchValue.textContent = String(settings.pitch);
+  volumeValue.textContent = String(settings.volume);
   autoReadInput.checked = settings.autoRead;
   highlightWordsInput.checked = settings.highlightWords;
   loadVoices(settings.voiceId);
@@ -74,6 +78,9 @@ rateInput.addEventListener("input", () => {
 pitchInput.addEventListener("input", () => {
   pitchValue.textContent = pitchInput.value;
 });
+volumeInput.addEventListener("input", () => {
+  volumeValue.textContent = volumeInput.value;
+});
 
 saveBtn.addEventListener("click", () => {
   chrome.storage.sync.get("settings", (result) => {
@@ -86,6 +93,7 @@ saveBtn.addEventListener("click", () => {
       voiceId: voiceSelect.value,
       rate: parseFloat(rateInput.value),
       pitch: parseFloat(pitchInput.value),
+      volume: parseFloat(volumeInput.value),
       autoRead: autoReadInput.checked,
       highlightWords: highlightWordsInput.checked,
     };
