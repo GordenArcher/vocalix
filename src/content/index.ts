@@ -1,6 +1,7 @@
 let container: HTMLDivElement | null = null;
 let isPlaying = false;
 let isPaused = false;
+let isLoading = false;
 let autoRead = false;
 let highlightWordsEnabled = true;
 
@@ -151,7 +152,8 @@ function cleanupHighlights(): void {
 }
 
 function startReading(text: string): void {
-  if (isPlaying || isPaused) return;
+  if (isPlaying || isPaused || isLoading) return;
+  isLoading = true;
 
   window.speechSynthesis.cancel();
 
@@ -191,6 +193,7 @@ function startReading(text: string): void {
     utterance.onstart = () => {
       isPlaying = true;
       isPaused = false;
+      isLoading = false;
       renderButtons("playing");
 
       const entry = {
@@ -209,6 +212,7 @@ function startReading(text: string): void {
     utterance.onend = () => {
       isPlaying = false;
       isPaused = false;
+      isLoading = false;
       renderButtons("idle");
       hideContainer();
       cleanupHighlights();
@@ -217,6 +221,7 @@ function startReading(text: string): void {
     utterance.onerror = () => {
       isPlaying = false;
       isPaused = false;
+      isLoading = false;
       renderButtons("idle");
       cleanupHighlights();
     };
@@ -229,6 +234,7 @@ function stopReading(): void {
   window.speechSynthesis.cancel();
   isPlaying = false;
   isPaused = false;
+  isLoading = false;
   renderButtons("idle");
   hideContainer();
   cleanupHighlights();
