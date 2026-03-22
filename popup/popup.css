@@ -231,6 +231,12 @@ input[type="checkbox"] {
     display: flex;
     flex-direction: column;
     gap: 4px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.history-item:hover {
+    background: #3f3f46;
 }
 
 .history-text {

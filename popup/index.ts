@@ -143,7 +143,7 @@ function loadHistory(): void {
           const snippet =
             entry.text.length > 80 ? entry.text.slice(0, 80) + "…" : entry.text;
           return `
-          <li class="history-item">
+          <li class="history-item" data-text="${encodeURIComponent(entry.text)}">
             <p class="history-text">${snippet}</p>
             <span class="history-meta">${host} · ${date} ${time}</span>
           </li>
@@ -151,6 +151,24 @@ function loadHistory(): void {
         },
       )
       .join("");
+
+    historyList.querySelectorAll(".history-item").forEach((item) => {
+      item.addEventListener("click", () => {
+        const text = decodeURIComponent(
+          (item as HTMLElement).dataset.text || "",
+        );
+        if (!text) return;
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          if (tabs[0]?.id) {
+            chrome.tabs.sendMessage(tabs[0].id, {
+              type: "READ_TEXT",
+              payload: text,
+            });
+            window.close();
+          }
+        });
+      });
+    });
   });
 }
 
