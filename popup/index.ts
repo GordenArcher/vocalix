@@ -58,7 +58,13 @@ function loadVoices(savedVoiceId: string = ""): void {
   const voices = window.speechSynthesis.getVoices();
 
   if (voices.length === 0) {
-    window.speechSynthesis.onvoiceschanged = () => loadVoices(savedVoiceId);
+    window.speechSynthesis.onvoiceschanged = () => {
+      window.speechSynthesis.onvoiceschanged = null;
+      loadVoices(savedVoiceId);
+    };
+    setTimeout(() => {
+      if (voiceSelect.options.length <= 1) loadVoices(savedVoiceId);
+    }, 500);
     return;
   }
 
@@ -150,4 +156,28 @@ function loadHistory(): void {
 
 clearBtn.addEventListener("click", () => {
   chrome.storage.local.remove("history", () => loadHistory());
+});
+
+const rereadBtn = document.getElementById("reread-btn") as HTMLButtonElement;
+
+rereadBtn.addEventListener("click", () => {
+  chrome.storage.local.get("history", (result) => {
+    const history = result.history || [];
+    if (history.length === 0) {
+      rereadBtn.textContent = "Nothing to re-read";
+      setTimeout(() => (rereadBtn.textContent = "🔁 Re-read last"), 1500);
+      return;
+    }
+
+    const last = history[0];
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs[0]?.id) {
+        chrome.tabs.sendMessage(tabs[0].id, {
+          type: "READ_TEXT",
+          payload: last.text,
+        });
+        window.close();
+      }
+    });
+  });
 });

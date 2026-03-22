@@ -54,6 +54,20 @@
                     />
                 </section>
 
+                <section class="field">
+                    <label for="volume"
+                        >Volume <span id="volume-value">1.0</span></label
+                    >
+                    <input
+                        type="range"
+                        id="volume"
+                        min="0"
+                        max="1"
+                        step="0.1"
+                        value="1"
+                    />
+                </section>
+
                 <section class="field row">
                     <div>
                         <label for="auto-read">Auto-read on highlight</label>
@@ -73,6 +87,7 @@
                 </section>
 
                 <button id="save-btn">Save settings</button>
+                <button id="reread-btn">🔁 Re-read last</button>
             </div>
 
             <div id="tab-history" class="hidden">
