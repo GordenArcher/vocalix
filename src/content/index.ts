@@ -24,6 +24,25 @@ chrome.storage.onChanged.addListener((changes) => {
 let highlightedSpans: HTMLElement[] = [];
 let originalRange: Range | null = null;
 
+function showToast(message: string): void {
+  const existing = document.getElementById("vocalix-toast");
+  if (existing) existing.remove();
+
+  const toast = document.createElement("div");
+  toast.id = "vocalix-toast";
+  toast.textContent = message;
+  document.body.appendChild(toast);
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => toast.classList.add("vocalix-toast-visible"));
+  });
+
+  setTimeout(() => {
+    toast.classList.remove("vocalix-toast-visible");
+    setTimeout(() => toast.remove(), 300);
+  }, 2000);
+}
+
 function getOrCreateContainer(): HTMLDivElement {
   const existing = document.getElementById(
     "vocalix-container",
@@ -278,7 +297,11 @@ chrome.runtime.onMessage.addListener(
   (message: { type: string; payload?: string }) => {
     if (message.type === "READ_TEXT") {
       const text = message.payload || window.getSelection()?.toString().trim();
-      if (text) startReading(text);
+      if (text) {
+        startReading(text);
+      } else {
+        showToast("No text selected");
+      }
     }
     if (message.type === "STOP") stopReading();
     if (message.type === "PAUSE") pauseReading();
