@@ -141,6 +141,23 @@ input[type="checkbox"] {
     cursor: pointer;
 }
 
+input[type="number"] {
+    width: 60px;
+    padding: 6px 8px;
+    background: #27272a;
+    color: #e4e4e7;
+    border: 1px solid #3f3f46;
+    border-radius: 8px;
+    font-size: 13px;
+    outline: none;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+input[type="number"]:focus {
+    border-color: #71717a;
+}
+
 #save-btn {
     width: 100%;
     padding: 9px;

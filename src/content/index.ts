@@ -4,17 +4,20 @@ let isPaused = false;
 let isLoading = false;
 let autoRead = false;
 let highlightWordsEnabled = true;
+let minLength = 2;
 
 chrome.storage.sync.get("settings", (result) => {
   const settings = result.settings || {};
   autoRead = settings.autoRead ?? false;
   highlightWordsEnabled = settings.highlightWords ?? true;
+  minLength = settings.minLength ?? 2;
 });
 
 chrome.storage.onChanged.addListener((changes) => {
   if (changes.settings?.newValue) {
     autoRead = changes.settings.newValue.autoRead ?? false;
     highlightWordsEnabled = changes.settings.newValue.highlightWords ?? true;
+    minLength = changes.settings.newValue.minLength ?? 2;
   }
 });
 
@@ -294,7 +297,7 @@ document.addEventListener("mouseup", () => {
     const selection = window.getSelection();
     const text = selection?.toString().trim();
 
-    if (!text || text.length < 2) {
+    if (!text || text.length < minLength) {
       hideContainer();
       return;
     }

@@ -70,6 +70,22 @@
 
                 <section class="field row">
                     <div>
+                        <label for="min-length">Minimum selection length</label>
+                        <p class="hint">
+                            Characters required before Read button appears
+                        </p>
+                    </div>
+                    <input
+                        type="number"
+                        id="min-length"
+                        min="1"
+                        max="500"
+                        value="2"
+                    />
+                </section>
+
+                <section class="field row">
+                    <div>
                         <label for="auto-read">Auto-read on highlight</label>
                         <p class="hint">
                             Reads immediately when you select text

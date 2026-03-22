@@ -12,6 +12,7 @@ export interface SpeechSettings {
   volume: number;
   autoRead: boolean;
   highlightWords: boolean;
+  minLength: number;
   source: "browser" | "elevenlabs" | "google";
   elevenLabsApiKey?: string;
   googleApiKey?: string;
@@ -36,5 +37,6 @@ export const DEFAULT_SETTINGS: SpeechSettings = {
   volume: 1.0,
   autoRead: false,
   highlightWords: true,
+  minLength: 2,
   source: "browser",
 };
