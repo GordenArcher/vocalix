@@ -11,6 +11,9 @@ const autoRead = document.getElementById("auto-read") as HTMLInputElement;
 const highlightWords = document.getElementById(
   "highlight-words",
 ) as HTMLInputElement;
+const minLengthInput = document.getElementById(
+  "min-length",
+) as HTMLInputElement;
 const saveBtn = document.getElementById("save-btn") as HTMLButtonElement;
 const savedMsg = document.getElementById("saved-msg") as HTMLParagraphElement;
 
@@ -26,6 +29,7 @@ chrome.storage.sync.get("settings", (result) => {
   pitchValue.textContent = String(settings.pitch);
   autoRead.checked = settings.autoRead;
   highlightWords.checked = settings.highlightWords;
+  minLengthInput.value = String(settings.minLength ?? 2);
 
   loadVoices(settings.voiceId);
 });
@@ -64,6 +68,7 @@ saveBtn.addEventListener("click", () => {
     pitch: parseFloat(pitchInput.value),
     autoRead: autoRead.checked,
     highlightWords: highlightWords.checked,
+    minLength: parseInt(minLengthInput.value) || 2,
   };
 
   chrome.storage.sync.set({ settings }, () => {
