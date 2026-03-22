@@ -143,8 +143,11 @@ function loadHistory(): void {
           const snippet =
             entry.text.length > 80 ? entry.text.slice(0, 80) + "…" : entry.text;
           return `
-          <li class="history-item" data-text="${encodeURIComponent(entry.text)}">
-            <p class="history-text">${snippet}</p>
+          <li class="history-item" data-id="${entry.id}" data-text="${encodeURIComponent(entry.text)}">
+            <div class="history-item-top">
+              <p class="history-text">${snippet}</p>
+              <button class="history-delete" data-id="${entry.id}" title="Delete">✕</button>
+            </div>
             <span class="history-meta">${host} · ${date} ${time}</span>
           </li>
         `;
@@ -153,7 +156,9 @@ function loadHistory(): void {
       .join("");
 
     historyList.querySelectorAll(".history-item").forEach((item) => {
-      item.addEventListener("click", () => {
+      item.addEventListener("click", (e) => {
+        if ((e.target as HTMLElement).classList.contains("history-delete"))
+          return;
         const text = decodeURIComponent(
           (item as HTMLElement).dataset.text || "",
         );
@@ -166,6 +171,19 @@ function loadHistory(): void {
             });
             window.close();
           }
+        });
+      });
+    });
+
+    historyList.querySelectorAll(".history-delete").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const id = (btn as HTMLElement).dataset.id;
+        chrome.storage.local.get("history", (result) => {
+          const updated = (result.history || []).filter(
+            (entry: { id: string }) => entry.id !== id,
+          );
+          chrome.storage.local.set({ history: updated }, () => loadHistory());
         });
       });
     });
