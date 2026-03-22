@@ -2,53 +2,74 @@
 
 > Highlight anything. Hear everything.
 
-A Chrome extension that reads selected text aloud using multiple voices, browser-native and AI-powered (coming soon).
+A Chrome extension that reads selected text aloud using multiple voices — browser-native and AI-powered (coming soon).
+
+---
+
+## Install from GitHub (no store needed)
+
+### 1. Clone the repo
+```bash
+git clone https://github.com/GordenArcher/vocalix.git
+cd vocalix
+```
+
+### 2. Install dependencies
+```bash
+npm install
+```
+
+### 3. Build the extension
+```bash
+npm run build
+```
+
+### 4. Load in Chrome
+1. Open Chrome and go to `chrome://extensions`
+2. Toggle **Developer mode** on (top right corner)
+3. Click **Load unpacked**
+4. Select the `dist/` folder inside the project
+
+Vocalix is now installed and ready to use.
+
+### 5. Set keyboard shortcuts (optional)
+1. Go to `chrome://extensions/shortcuts`
+2. Find Vocalix and set:
+   - `Alt+R` — Read selected text
+   - `Alt+S` — Stop reading
+   - `Alt+P` — Pause / Resume
+
+---
+
+## How to Use
+
+1. Go to any webpage
+2. Highlight any text
+3. Click the **▶ Read** button that appears
+4. Use **⏸ Pause** and **⏹ Stop** to control playback
+5. Click the extension icon to change voice, speed, pitch and volume
 
 ---
 
 ## Features
 
--  **Floating button** — highlight text, a play button appears instantly
--  **Right-click** — "Read aloud with Vocalix" in the context menu
--  **Keyboard shortcuts** — `Alt+R` to read, `Alt+S` to stop
--  **Multiple voices** — pick from all browser-native voices
--  **Speed & pitch controls** — adjust from the popup
--  **Word highlight follow-along** — each word highlights as it's spoken
--  **Options page** — auto-read toggle, default voice, and more
--  **History** — log of everything you've read
-
----
-
-## Installation
-
-### From source
-
-```bash
-git clone https://github.com/GordenArcher/vocalix.git
-cd vocalix
-npm install
-npm run build
-```
-
-Then:
-1. Open Chrome and go to `chrome://extensions`
-2. Enable **Developer mode** (top right)
-3. Click **Load unpacked**
-4. Select the `dist/` folder
-
-### Keyboard shortcuts
-
-After installing, go to `chrome://extensions/shortcuts` and set:
-- `Alt+R` — Read selected text
-- `Alt+S` — Stop reading
+-  Floating read button on any text selection
+-  Pause, resume and stop controls
+-  Word-by-word highlight as it reads
+-  Multiple voices + speed, pitch & volume control
+-  Keyboard shortcuts
+-  Right-click context menu support
+-  Reading history — click any entry to re-read
+-  Re-read last button
+-  Auto-read, minimum selection length and more
 
 ---
 
 ## Development
 
 ```bash
-npm run dev    # watch mode, rebuilds on every file change
-npm run build  # production build
+npm run dev   # watch mode — rebuilds on every file change
+npm run build # production build
 ```
 
 After each build, click the refresh icon on the Vocalix card in `chrome://extensions`.
@@ -84,21 +105,15 @@ vocalix/
 
 - [ ] ElevenLabs AI voices
 - [ ] Google TTS voices
-- [ ] Pause / resume support
-- [ ] Reading speed presets
+- [ ] Reading progress bar
+- [ ] Dark / light theme toggle
 - [ ] Chrome Web Store listing
 
 ---
 
 ## Contributing
 
-PRs welcome! Please keep each PR focused on one feature or fix.
-
-1. Fork the repo
-2. Create a branch: `git checkout -b feat/your-feature`
-3. Make your changes and build: `npm run build`
-4. Test in Chrome
-5. Open a PR with a clear description
+PRs welcome! See [CONTRIBUTING.md](.github/CONTRIBUTING.md).
 
 ---
 
