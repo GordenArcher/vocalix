@@ -254,9 +254,23 @@ function startReading(text: string): void {
       isPlaying = false;
       isPaused = false;
       isLoading = false;
-      renderButtons("idle");
-      hideContainer();
       cleanupHighlights();
+
+      const sel = window.getSelection();
+      const stillSelected =
+        sel &&
+        !sel.isCollapsed &&
+        (sel.toString().trim().length ?? 0) >= minLength;
+
+      if (stillSelected) {
+        const range = sel!.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+        renderButtons("idle");
+        showContainer(rect.right, rect.bottom);
+      } else {
+        renderButtons("idle");
+        hideContainer();
+      }
     };
 
     utterance.onerror = () => {
