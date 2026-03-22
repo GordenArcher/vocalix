@@ -1,5 +1,8 @@
 import { DEFAULT_SETTINGS, SpeechSettings } from "../src/types/index";
 
+/**
+ * Popup UI elements - these control the settings panel users interact with
+ */
 const voiceSelect = document.getElementById(
   "voice-select",
 ) as HTMLSelectElement;
@@ -23,6 +26,10 @@ const historyCount = document.getElementById(
 ) as HTMLSpanElement;
 const clearBtn = document.getElementById("clear-btn") as HTMLButtonElement;
 
+/**
+ * Tab switching between Settings and History views
+ * I toggle visibility and load history on demand to save resources
+ */
 document.querySelectorAll(".tab").forEach((tab) => {
   tab.addEventListener("click", () => {
     document
@@ -38,6 +45,10 @@ document.querySelectorAll(".tab").forEach((tab) => {
   });
 });
 
+/**
+ * Load saved settings from Chrome sync storage
+ * I merge with defaults so new settings don't break existing installs
+ */
 chrome.storage.sync.get("settings", (result) => {
   const settings: SpeechSettings = {
     ...DEFAULT_SETTINGS,
@@ -54,6 +65,11 @@ chrome.storage.sync.get("settings", (result) => {
   loadVoices(settings.voiceId);
 });
 
+/**
+ * Populate voice dropdown with available system voices
+ * This is tricky because voices aren't always ready when the popup opens
+ * I handle the async loading with onvoiceschanged and a retry fallback
+ */
 function loadVoices(savedVoiceId: string = ""): void {
   const voices = window.speechSynthesis.getVoices();
 
@@ -78,6 +94,10 @@ function loadVoices(savedVoiceId: string = ""): void {
   });
 }
 
+/**
+ * Live preview of slider values while dragging
+ * Makes it feel more responsive than just showing numbers after save
+ */
 rateInput.addEventListener("input", () => {
   rateValue.textContent = rateInput.value;
 });
@@ -88,6 +108,10 @@ volumeInput.addEventListener("input", () => {
   volumeValue.textContent = volumeInput.value;
 });
 
+/**
+ * Save all settings to Chrome sync storage
+ * I show a temporary "Saved" feedback so users know it worked
+ */
 saveBtn.addEventListener("click", () => {
   chrome.storage.sync.get("settings", (result) => {
     const existing: SpeechSettings = {
@@ -110,6 +134,11 @@ saveBtn.addEventListener("click", () => {
   });
 });
 
+/**
+ * Load reading history from local storage
+ * I use local (not sync) because history can get large and is device-specific
+ * Each item shows text snippet, domain, and timestamp
+ */
 function loadHistory(): void {
   chrome.storage.local.get("history", (result) => {
     const history = result.history || [];
@@ -155,6 +184,11 @@ function loadHistory(): void {
       )
       .join("");
 
+    /**
+     * Clicking a history item sends it to the content script for reading
+     * I encodeURIComponent the text to handle special characters safely
+     * Then close the popup immediately for better UX
+     */
     historyList.querySelectorAll(".history-item").forEach((item) => {
       item.addEventListener("click", (e) => {
         if ((e.target as HTMLElement).classList.contains("history-delete"))
@@ -175,6 +209,10 @@ function loadHistory(): void {
       });
     });
 
+    /**
+     * Individual delete buttons let users remove specific history items
+     * I stopPropagation so the parent click handler doesn't trigger
+     */
     historyList.querySelectorAll(".history-delete").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -190,12 +228,21 @@ function loadHistory(): void {
   });
 }
 
+/**
+ * Clear entire history when user clicks the clear button
+ * I reload the UI after to show empty state
+ */
 clearBtn.addEventListener("click", () => {
   chrome.storage.local.remove("history", () => loadHistory());
 });
 
 const rereadBtn = document.getElementById("reread-btn") as HTMLButtonElement;
 
+/**
+ * Quick re-read of the most recent history item
+ * If there's no history, show temporary feedback and revert after 1.5s
+ * This is a convenience feature so users don't have to navigate to history tab
+ */
 rereadBtn.addEventListener("click", () => {
   chrome.storage.local.get("history", (result) => {
     const history = result.history || [];
