@@ -44,11 +44,18 @@ function showContainer(x: number, y: number): void {
   let left = x + margin;
   let top = y + margin;
 
-  if (left + 160 > window.innerWidth) left = x - 170;
+  if (left + 220 > window.innerWidth) left = x - 230;
   if (top + 44 > window.innerHeight) top = y - 50;
 
   c.style.left = `${left}px`;
   c.style.top = `${top}px`;
+  c.classList.add("vocalix-visible");
+}
+
+function showContainerCentered(): void {
+  const c = getOrCreateContainer();
+  c.style.left = `${window.innerWidth / 2 - 110}px`;
+  c.style.top = `20px`;
   c.classList.add("vocalix-visible");
 }
 
@@ -67,7 +74,13 @@ function renderButtons(state: "idle" | "playing" | "paused"): void {
     });
     c.appendChild(playBtn);
   } else if (state === "playing") {
-    const pauseBtn = makeButton("⏸ Pause", "vocalix-btn-pause", pauseReading);
+    const pauseBtn = makeButton("", "vocalix-btn-pause", pauseReading);
+    pauseBtn.innerHTML = `
+      <div class="vocalix-wave">
+        <span></span><span></span><span></span><span></span><span></span>
+      </div>
+      ⏸ Pause
+    `;
     const stopBtn = makeButton("⏹ Stop", "vocalix-btn-stop", stopReading);
     c.appendChild(pauseBtn);
     c.appendChild(stopBtn);
@@ -195,6 +208,12 @@ function startReading(text: string): void {
       isPaused = false;
       isLoading = false;
       renderButtons("playing");
+
+      // If container isn't visible (e.g. triggered via shortcut), show it centered at top
+      const c = getOrCreateContainer();
+      if (!c.classList.contains("vocalix-visible")) {
+        showContainerCentered();
+      }
 
       const entry = {
         id: Date.now().toString(),
