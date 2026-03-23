@@ -14,11 +14,16 @@ let highlightWordsEnabled = true;
 let minLength = 2;
 let wakeWordEnabled = false;
 let wakeWord = "hey vocalix";
-let recognition: SpeechRecognition | null = null;
+let recognition: any = null;
+let lastText = "";
+let highlightedSpans: HTMLElement[] = [];
+let originalRange: Range | null = null;
+let lastWakeWordTime = 0;
+let isRestarting = false;
+const WAKE_WORD_COOLDOWN = 3000;
 
 /**
  * Load saved settings and initialize wake word listener if enabled
- * I need to get the wake word config early so the listener starts correctly
  */
 chrome.storage.sync.get("settings", (result) => {
   const settings = result.settings || {};
@@ -32,7 +37,6 @@ chrome.storage.sync.get("settings", (result) => {
 
 /**
  * Listen for settings changes while the page is active
- * This allows enabling/disabling wake word without refreshing the page
  */
 chrome.storage.onChanged.addListener((changes) => {
   if (changes.settings?.newValue) {
@@ -54,14 +58,13 @@ chrome.storage.onChanged.addListener((changes) => {
 
 /**
  * Start continuous speech recognition to listen for wake word
- * I use continuous mode so it keeps listening after each detection
- * The listener automatically restarts when it ends unless disabled
  */
 function startWakeWordListener(): void {
   if (recognition) return;
 
   const SpeechRecognition =
-    window.SpeechRecognition || (window as any).webkitSpeechRecognition;
+    (window as any).SpeechRecognition ||
+    (window as any).webkitSpeechRecognition;
   if (!SpeechRecognition) {
     console.warn("Vocalix: Speech Recognition not supported in this browser");
     return;
@@ -72,17 +75,29 @@ function startWakeWordListener(): void {
   recognition.interimResults = false;
   recognition.lang = "en-US";
 
+  recognition.onstart = () => {
+    console.log("Wake word listening active");
+    isRestarting = false;
+  };
+
   recognition.onresult = (event) => {
     const transcript = event.results[event.results.length - 1][0].transcript
       .trim()
       .toLowerCase();
+
     if (transcript.includes(wakeWord)) {
-      const text = window.getSelection()?.toString().trim();
-      if (text && text.length >= minLength) {
-        lastText = text;
-        startReading(text);
+      if (isPlaying || isPaused || isLoading) return;
+
+      const now = Date.now();
+      if (now - lastWakeWordTime < WAKE_WORD_COOLDOWN) return;
+
+      const selectedText = window.getSelection()?.toString().trim();
+      if (selectedText && selectedText.length >= minLength) {
+        lastWakeWordTime = now;
+        lastText = selectedText;
+        startReading(selectedText);
       } else {
-        showToast("Say the wake word with text selected");
+        showToast("Select text first, then say the wake word");
       }
     }
   };
@@ -91,12 +106,29 @@ function startWakeWordListener(): void {
     if (event.error === "not-allowed") {
       showToast("Microphone access denied");
       wakeWordEnabled = false;
+      stopWakeWordListener();
     }
   };
 
   recognition.onend = () => {
-    if (wakeWordEnabled) {
-      recognition?.start();
+    if (
+      wakeWordEnabled &&
+      !isPlaying &&
+      !isPaused &&
+      !isLoading &&
+      !isRestarting
+    ) {
+      isRestarting = true;
+      setTimeout(() => {
+        if (wakeWordEnabled && recognition && !isPlaying && !isPaused) {
+          try {
+            recognition.start();
+          } catch (error) {
+            recognition = null;
+          }
+        }
+        isRestarting = false;
+      }, 500);
     }
   };
 
@@ -106,19 +138,22 @@ function startWakeWordListener(): void {
 
 /**
  * Stop wake word detection and clean up
- * I null out the onend handler to prevent auto-restart
  */
 function stopWakeWordListener(): void {
   if (!recognition) return;
   recognition.onend = null;
-  recognition.stop();
+  try {
+    recognition.stop();
+  } catch (error) {
+    // Ignore
+  }
   recognition = null;
   showListeningIndicator(false);
+  isRestarting = false;
 }
 
 /**
  * Show/hide visual indicator that microphone is active
- * This gives users feedback that wake word detection is running
  */
 function showListeningIndicator(active: boolean): void {
   let indicator = document.getElementById(
@@ -138,13 +173,8 @@ function showListeningIndicator(active: boolean): void {
   }
 }
 
-let highlightedSpans: HTMLElement[] = [];
-let originalRange: Range | null = null;
-let lastText = "";
-
 /**
  * Show temporary toast notification
- * I use double requestAnimationFrame to ensure CSS transitions work properly
  */
 function showToast(message: string): void {
   const existing = document.getElementById("vocalix-toast");
@@ -167,7 +197,6 @@ function showToast(message: string): void {
 
 /**
  * Get or create the floating control container
- * Singleton pattern ensures only one container exists
  */
 function getOrCreateContainer(): HTMLDivElement {
   const existing = document.getElementById(
@@ -187,7 +216,6 @@ function getOrCreateContainer(): HTMLDivElement {
 
 /**
  * Position container near selection with edge detection
- * I flip to the other side if it would go off-screen
  */
 function showContainer(x: number, y: number): void {
   const c = getOrCreateContainer();
@@ -206,7 +234,6 @@ function showContainer(x: number, y: number): void {
 
 /**
  * Show container at top-center during playback
- * Keeps controls accessible without obscuring content
  */
 function showContainerCentered(): void {
   const c = getOrCreateContainer();
@@ -221,7 +248,6 @@ function hideContainer(): void {
 
 /**
  * Render appropriate buttons based on current reading state
- * I update UI immediately to prevent confusion from multiple clicks
  */
 function renderButtons(state: "idle" | "playing" | "paused"): void {
   const c = getOrCreateContainer();
@@ -258,7 +284,6 @@ function renderButtons(state: "idle" | "playing" | "paused"): void {
 
 /**
  * Create button with event propagation prevention
- * I stopPropagation to prevent clicks from accidentally hiding the container
  */
 function makeButton(
   label: string,
@@ -278,7 +303,6 @@ function makeButton(
 
 /**
  * Wrap each word in the selected range with spans for highlighting
- * I preserve whitespace by keeping text nodes for spaces
  */
 function wrapWordsInRange(range: Range): HTMLElement[] {
   const fragment = range.cloneContents();
@@ -308,7 +332,6 @@ function wrapWordsInRange(range: Range): HTMLElement[] {
 
 /**
  * Highlight current word and scroll into view
- * I use smooth scrolling to maintain reading flow
  */
 function highlightWord(index: number): void {
   highlightedSpans.forEach((s) => s.classList.remove("vocalix-word-active"));
@@ -323,7 +346,6 @@ function highlightWord(index: number): void {
 
 /**
  * Restore original DOM by replacing spans with text nodes
- * I normalize parents to merge adjacent text nodes back together
  */
 function cleanupHighlights(): void {
   highlightedSpans.forEach((span) => {
@@ -342,10 +364,14 @@ function cleanupHighlights(): void {
 
 /**
  * Main reading function
- * I handle the entire TTS flow including settings, highlighting, and history
  */
 function startReading(text: string): void {
   if (isPlaying || isPaused || isLoading) return;
+
+  if (wakeWordEnabled && recognition) {
+    stopWakeWordListener();
+  }
+
   isLoading = true;
 
   window.speechSynthesis.cancel();
@@ -416,6 +442,10 @@ function startReading(text: string): void {
       isLoading = false;
       cleanupHighlights();
 
+      if (wakeWordEnabled) {
+        startWakeWordListener();
+      }
+
       const sel = window.getSelection();
       const stillSelected =
         sel &&
@@ -440,6 +470,10 @@ function startReading(text: string): void {
       isLoading = false;
       renderButtons("idle");
       cleanupHighlights();
+
+      if (wakeWordEnabled) {
+        startWakeWordListener();
+      }
     };
 
     window.speechSynthesis.speak(utterance);
@@ -454,6 +488,10 @@ function stopReading(): void {
   renderButtons("idle");
   hideContainer();
   cleanupHighlights();
+
+  if (wakeWordEnabled) {
+    startWakeWordListener();
+  }
 }
 
 function pauseReading(): void {
@@ -470,7 +508,6 @@ function resumeReading(): void {
 
 /**
  * Handle messages from popup, background, and keyboard shortcuts
- * I support read, stop, pause, resume, and toggle commands
  */
 chrome.runtime.onMessage.addListener(
   (message: { type: string; payload?: string }) => {
@@ -495,7 +532,6 @@ chrome.runtime.onMessage.addListener(
 
 /**
  * Show button when text is selected
- * I use a 50ms delay to let the selection stabilize after mouseup
  */
 document.addEventListener("mouseup", () => {
   setTimeout(() => {
@@ -525,7 +561,6 @@ document.addEventListener("mouseup", () => {
 
 /**
  * Hide container when clicking outside
- * I check if the click target is inside the container to avoid accidental closure
  */
 document.addEventListener("mousedown", (e) => {
   const target = e.target as HTMLElement;
