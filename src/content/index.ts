@@ -1,92 +1,150 @@
 /**
- * Vocalix - Text-to-Speech Chrome Extension Content Script
+ * Vocalix Content Script - Text-to-Speech with Wake Word Support
  *
  * This script handles text selection, speech synthesis, word highlighting,
- * and UI management for the Vocalix extension.
+ * and wake word detection for hands-free reading.
  */
 
-// Core UI state variables, track what's currently happening
 let container: HTMLDivElement | null = null;
-let isPlaying = false; // Actively speaking
-let isPaused = false; // Paused mid-speech
-let isLoading = false; // Waiting for async operations
-let autoRead = false; // Read immediately on selection
-let highlightWordsEnabled = true; // Visual word tracking
-let minLength = 2; // Minimum characters to trigger reading
-
-// Speech synthesis tracking
-let currentUtterance: SpeechSynthesisUtterance | null = null;
-let voiceLoadAttempts = 0;
-const MAX_VOICE_ATTEMPTS = 10;
-
-// Voice loading management - voices aren't immediately available in all browsers
-let voicesLoaded = false;
-let pendingVoicesCallbacks: (() => void)[] = [];
+let isPlaying = false;
+let isPaused = false;
+let isLoading = false;
+let autoRead = false;
+let highlightWordsEnabled = true;
+let minLength = 2;
+let wakeWordEnabled = false;
+let wakeWord = "hey vocalix";
+let recognition: SpeechRecognition | null = null;
 
 /**
- * Wait for voices to be loaded before using speech synthesis
- * This prevents empty voice lists in some browsers (especially Chrome)
+ * Load saved settings and initialize wake word listener if enabled
+ * I need to get the wake word config early so the listener starts correctly
  */
-function onVoicesReady(callback: () => void): void {
-  if (voicesLoaded) {
-    callback();
-  } else {
-    pendingVoicesCallbacks.push(callback);
-  }
-}
-
-/**
- * Poll for voice availability since onvoiceschanged doesn't always fire reliably
- * Fallback polling mechanism ensures voices are eventually available
- */
-function loadVoices(): void {
-  const voices = window.speechSynthesis.getVoices();
-  if (voices.length > 0) {
-    voicesLoaded = true;
-    pendingVoicesCallbacks.forEach((cb) => cb());
-    pendingVoicesCallbacks = [];
-  } else if (voiceLoadAttempts < MAX_VOICE_ATTEMPTS) {
-    voiceLoadAttempts++;
-    setTimeout(loadVoices, 100);
-  }
-}
-
-// Initialize voice loading when window is ready
-if (typeof window !== "undefined" && window.speechSynthesis) {
-  window.speechSynthesis.onvoiceschanged = loadVoices;
-  loadVoices();
-}
-
-// Load saved settings from Chrome storage
 chrome.storage.sync.get("settings", (result) => {
   const settings = result.settings || {};
   autoRead = settings.autoRead ?? false;
   highlightWordsEnabled = settings.highlightWords ?? true;
   minLength = settings.minLength ?? 2;
+  wakeWordEnabled = settings.wakeWordEnabled ?? false;
+  wakeWord = (settings.wakeWord ?? "hey vocalix").toLowerCase();
+  if (wakeWordEnabled) startWakeWordListener();
 });
 
-// Listen for settings changes while extension is active
+/**
+ * Listen for settings changes while the page is active
+ * This allows enabling/disabling wake word without refreshing the page
+ */
 chrome.storage.onChanged.addListener((changes) => {
   if (changes.settings?.newValue) {
     autoRead = changes.settings.newValue.autoRead ?? false;
     highlightWordsEnabled = changes.settings.newValue.highlightWords ?? true;
     minLength = changes.settings.newValue.minLength ?? 2;
+    wakeWordEnabled = changes.settings.newValue.wakeWordEnabled ?? false;
+    wakeWord = (
+      changes.settings.newValue.wakeWord ?? "hey vocalix"
+    ).toLowerCase();
+
+    if (wakeWordEnabled) {
+      startWakeWordListener();
+    } else {
+      stopWakeWordListener();
+    }
   }
 });
 
-// Word highlighting management
-let highlightedSpans: HTMLElement[] = [];
-let originalRange: Range | null = null;
-let originalParentNodes: Map<
-  HTMLElement,
-  { parent: Node; nextSibling: Node | null }
-> = new Map();
-let lastText = "";
-let pendingReading = false; // Prevents multiple simultaneous play requests
+/**
+ * Start continuous speech recognition to listen for wake word
+ * I use continuous mode so it keeps listening after each detection
+ * The listener automatically restarts when it ends unless disabled
+ */
+function startWakeWordListener(): void {
+  if (recognition) return;
+
+  const SpeechRecognition =
+    window.SpeechRecognition || (window as any).webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    console.warn("Vocalix: Speech Recognition not supported in this browser");
+    return;
+  }
+
+  recognition = new SpeechRecognition();
+  recognition.continuous = true;
+  recognition.interimResults = false;
+  recognition.lang = "en-US";
+
+  recognition.onresult = (event) => {
+    const transcript = event.results[event.results.length - 1][0].transcript
+      .trim()
+      .toLowerCase();
+    if (transcript.includes(wakeWord)) {
+      const text = window.getSelection()?.toString().trim();
+      if (text && text.length >= minLength) {
+        lastText = text;
+        startReading(text);
+      } else {
+        showToast("Say the wake word with text selected");
+      }
+    }
+  };
+
+  recognition.onerror = (event) => {
+    if (event.error === "not-allowed") {
+      showToast("Microphone access denied");
+      wakeWordEnabled = false;
+    }
+  };
+
+  recognition.onend = () => {
+    if (wakeWordEnabled) {
+      recognition?.start();
+    }
+  };
+
+  recognition.start();
+  showListeningIndicator(true);
+}
 
 /**
- * Show temporary notification message
- * Uses double requestAnimationFrame to ensure CSS transitions work properly
+ * Stop wake word detection and clean up
+ * I null out the onend handler to prevent auto-restart
+ */
+function stopWakeWordListener(): void {
+  if (!recognition) return;
+  recognition.onend = null;
+  recognition.stop();
+  recognition = null;
+  showListeningIndicator(false);
+}
+
+/**
+ * Show/hide visual indicator that microphone is active
+ * This gives users feedback that wake word detection is running
+ */
+function showListeningIndicator(active: boolean): void {
+  let indicator = document.getElementById(
+    "vocalix-listening",
+  ) as HTMLDivElement;
+
+  if (!active) {
+    indicator?.remove();
+    return;
+  }
+
+  if (!indicator) {
+    indicator = document.createElement("div");
+    indicator.id = "vocalix-listening";
+    indicator.textContent = "🎤 Vocalix listening";
+    document.body.appendChild(indicator);
+  }
+}
+
+let highlightedSpans: HTMLElement[] = [];
+let originalRange: Range | null = null;
+let lastText = "";
+
+/**
+ * Show temporary toast notification
+ * I use double requestAnimationFrame to ensure CSS transitions work properly
  */
 function showToast(message: string): void {
   const existing = document.getElementById("vocalix-toast");
@@ -97,12 +155,10 @@ function showToast(message: string): void {
   toast.textContent = message;
   document.body.appendChild(toast);
 
-  // Double RAF ensures DOM has rendered before adding visible class
   requestAnimationFrame(() => {
     requestAnimationFrame(() => toast.classList.add("vocalix-toast-visible"));
   });
 
-  // Auto-remove after 2 seconds with animation
   setTimeout(() => {
     toast.classList.remove("vocalix-toast-visible");
     setTimeout(() => toast.remove(), 300);
@@ -111,7 +167,7 @@ function showToast(message: string): void {
 
 /**
  * Get or create the floating control container
- * Singleton pattern to ensure only one container exists
+ * Singleton pattern ensures only one container exists
  */
 function getOrCreateContainer(): HTMLDivElement {
   const existing = document.getElementById(
@@ -131,7 +187,7 @@ function getOrCreateContainer(): HTMLDivElement {
 
 /**
  * Position container near selection with edge detection
- * Prevents container from going off-screen by clamping values
+ * I flip to the other side if it would go off-screen
  */
 function showContainer(x: number, y: number): void {
   const c = getOrCreateContainer();
@@ -140,13 +196,8 @@ function showContainer(x: number, y: number): void {
   let left = x + margin;
   let top = y + margin;
 
-  // Clamp to viewport boundaries
-  left = Math.max(margin, Math.min(left, window.innerWidth - 230));
-  top = Math.max(margin, Math.min(top, window.innerHeight - 50));
-
-  // If still near edge, flip to other side of cursor
-  if (left + 220 > window.innerWidth) left = Math.max(margin, x - 230);
-  if (top + 44 > window.innerHeight) top = Math.max(margin, y - 50);
+  if (left + 220 > window.innerWidth) left = x - 230;
+  if (top + 44 > window.innerHeight) top = y - 50;
 
   c.style.left = `${left}px`;
   c.style.top = `${top}px`;
@@ -154,12 +205,12 @@ function showContainer(x: number, y: number): void {
 }
 
 /**
- * Show container at top-center for auto-reading state
- * Keeps UI consistent and out of the way during playback
+ * Show container at top-center during playback
+ * Keeps controls accessible without obscuring content
  */
 function showContainerCentered(): void {
   const c = getOrCreateContainer();
-  c.style.left = `${Math.max(8, window.innerWidth / 2 - 110)}px`;
+  c.style.left = `${window.innerWidth / 2 - 110}px`;
   c.style.top = `20px`;
   c.classList.add("vocalix-visible");
 }
@@ -170,7 +221,7 @@ function hideContainer(): void {
 
 /**
  * Render appropriate buttons based on current reading state
- * This ensures UI always reflects actual state, preventing confusion
+ * I update UI immediately to prevent confusion from multiple clicks
  */
 function renderButtons(state: "idle" | "playing" | "paused"): void {
   const c = getOrCreateContainer();
@@ -179,16 +230,11 @@ function renderButtons(state: "idle" | "playing" | "paused"): void {
   if (state === "idle") {
     const playBtn = makeButton("▶ Read", "vocalix-btn-play", () => {
       const text = window.getSelection()?.toString().trim() || lastText;
-      if (text && text.length >= minLength) {
-        startReading(text);
-      } else if (!text) {
-        showToast("No text to read");
-      }
+      if (text) startReading(text);
     });
     c.appendChild(playBtn);
   } else if (state === "playing") {
     const pauseBtn = makeButton("", "vocalix-btn-pause", pauseReading);
-    // Visual waveform animation while speaking
     pauseBtn.innerHTML = `
       <div class="vocalix-wave">
         <span></span><span></span><span></span><span></span><span></span>
@@ -211,8 +257,8 @@ function renderButtons(state: "idle" | "playing" | "paused"): void {
 }
 
 /**
- * Create a button with proper event handling
- * Prevents event bubbling which could interfere with page interactions
+ * Create button with event propagation prevention
+ * I stopPropagation to prevent clicks from accidentally hiding the container
  */
 function makeButton(
   label: string,
@@ -231,46 +277,38 @@ function makeButton(
 }
 
 /**
- * Wrap each word in the selected range with span tags for highlighting
- * Preserves whitespace structure while making each word individually targetable
+ * Wrap each word in the selected range with spans for highlighting
+ * I preserve whitespace by keeping text nodes for spaces
  */
 function wrapWordsInRange(range: Range): HTMLElement[] {
+  const fragment = range.cloneContents();
+  const text = fragment.textContent || "";
+  const words = text.split(/(\s+)/);
+
   const spans: HTMLElement[] = [];
+  const wrapper = document.createDocumentFragment();
 
-  try {
-    const fragment = range.cloneContents();
-    const text = fragment.textContent || "";
-    const words = text.split(/(\s+)/); // Keep whitespace tokens
+  words.forEach((part) => {
+    if (/^\s+$/.test(part)) {
+      wrapper.appendChild(document.createTextNode(part));
+    } else if (part.length > 0) {
+      const span = document.createElement("span");
+      span.className = "vocalix-word";
+      span.textContent = part;
+      wrapper.appendChild(span);
+      spans.push(span);
+    }
+  });
 
-    const wrapper = document.createDocumentFragment();
-
-    words.forEach((part) => {
-      if (/^\s+$/.test(part)) {
-        // Preserve whitespace as text nodes
-        wrapper.appendChild(document.createTextNode(part));
-      } else if (part.length > 0) {
-        const span = document.createElement("span");
-        span.className = "vocalix-word";
-        span.textContent = part;
-        wrapper.appendChild(span);
-        spans.push(span);
-      }
-    });
-
-    // Replace original content with wrapped version
-    range.deleteContents();
-    range.insertNode(wrapper);
-  } catch (error) {
-    console.error("Error wrapping words:", error);
-    return [];
-  }
+  range.deleteContents();
+  range.insertNode(wrapper);
 
   return spans;
 }
 
 /**
- * Highlight specific word by index
- * Scrolls into view smoothly to keep current word visible
+ * Highlight current word and scroll into view
+ * I use smooth scrolling to maintain reading flow
  */
 function highlightWord(index: number): void {
   highlightedSpans.forEach((s) => s.classList.remove("vocalix-word-active"));
@@ -284,260 +322,165 @@ function highlightWord(index: number): void {
 }
 
 /**
- * Restore original DOM structure by removing highlight spans
- * Important to not leave modified DOM after reading completes
+ * Restore original DOM by replacing spans with text nodes
+ * I normalize parents to merge adjacent text nodes back together
  */
 function cleanupHighlights(): void {
-  // Replace each span with its text content
   highlightedSpans.forEach((span) => {
     const parent = span.parentNode;
-    if (parent && span.textContent !== null) {
-      const textNode = document.createTextNode(span.textContent);
-      parent.replaceChild(textNode, span);
+    if (parent) {
+      parent.replaceChild(
+        document.createTextNode(span.textContent || ""),
+        span,
+      );
+      parent.normalize();
     }
   });
-
-  // Normalize parent nodes to merge adjacent text nodes
-  const parents = new Set<Node>();
-  highlightedSpans.forEach((span) => {
-    if (span.parentNode) parents.add(span.parentNode);
-  });
-  parents.forEach((parent) => {
-    if (parent instanceof Element) parent.normalize();
-  });
-
-  // Clear tracking variables
   highlightedSpans = [];
   originalRange = null;
-  originalParentNodes.clear();
 }
 
 /**
- * Reset all UI state to idle
- * Centralized state reset to ensure consistency
- */
-function resetUIState(): void {
-  isPlaying = false;
-  isPaused = false;
-  isLoading = false;
-  pendingReading = false;
-
-  if (container) {
-    renderButtons("idle");
-    hideContainer();
-  }
-
-  cleanupHighlights();
-}
-
-/**
- * Stop reading immediately and reset everything
- */
-function stopReading(): void {
-  if (pendingReading) {
-    pendingReading = false;
-  }
-
-  if (currentUtterance) {
-    window.speechSynthesis.cancel();
-    currentUtterance = null;
-  }
-
-  resetUIState();
-}
-
-/**
- * Pause at current position
- * Only works if actively playing and not already paused
- */
-function pauseReading(): void {
-  if (isPlaying && !isPaused && currentUtterance) {
-    isPaused = true;
-    window.speechSynthesis.pause();
-    renderButtons("paused");
-  }
-}
-
-/**
- * Resume from paused position
- */
-function resumeReading(): void {
-  if (isPaused && currentUtterance) {
-    window.speechSynthesis.resume();
-    isPaused = false;
-    renderButtons("playing");
-  }
-}
-
-/**
- * Main reading function, orchestrates the entire TTS process
- *
- * Key challenges handled:
- * - Preventing multiple simultaneous plays (pendingReading flag)
- * - Immediate UI update to give visual feedback
- * - Voice loading synchronization
- * - Settings application with bounds checking
- * - Proper cleanup on completion/error
+ * Main reading function
+ * I handle the entire TTS flow including settings, highlighting, and history
  */
 function startReading(text: string): void {
-  // Guard against race conditions
-  if (isPlaying || isPaused || isLoading || pendingReading) {
-    console.log("Already playing/paused/loading, ignoring request");
-    return;
-  }
-
-  if (!text || text.trim().length < minLength) {
-    showToast(`Text must be at least ${minLength} characters`);
-    return;
-  }
-
-  pendingReading = true;
+  if (isPlaying || isPaused || isLoading) return;
   isLoading = true;
 
-  // Clear any lingering speech
-  if (currentUtterance) {
-    window.speechSynthesis.cancel();
-    currentUtterance = null;
-  }
+  window.speechSynthesis.cancel();
 
-  // Update UI immediately to prevent multiple clicks
-  renderButtons("playing");
-  showContainerCentered();
-
-  // Set up word highlighting if enabled
   const selection = window.getSelection();
   if (highlightWordsEnabled && selection && !selection.isCollapsed) {
+    originalRange = selection.getRangeAt(0).cloneRange();
     try {
-      originalRange = selection.getRangeAt(0).cloneRange();
       highlightedSpans = wrapWordsInRange(selection.getRangeAt(0));
-    } catch (error) {
-      console.error("Error creating word highlights:", error);
+    } catch {
       highlightedSpans = [];
     }
   }
 
-  // Wait for voices to be ready before creating utterance
-  onVoicesReady(() => {
-    const utterance = new SpeechSynthesisUtterance(text);
-    currentUtterance = utterance;
+  const utterance = new SpeechSynthesisUtterance(text);
 
-    // Load and apply user settings
-    chrome.storage.sync.get("settings", (result) => {
-      const settings = result.settings || {};
+  chrome.storage.sync.get("settings", (result) => {
+    const settings = result.settings || {};
 
-      // Clamp values to valid ranges
-      utterance.rate = Math.min(2, Math.max(0.5, settings.rate ?? 1.0));
-      utterance.pitch = Math.min(2, Math.max(0.5, settings.pitch ?? 1.0));
-      utterance.volume = Math.min(1, Math.max(0, settings.volume ?? 1.0));
+    utterance.rate = settings.rate ?? 1.0;
+    utterance.pitch = settings.pitch ?? 1.0;
+    utterance.volume = settings.volume ?? 1.0;
 
-      // Set voice if saved in settings
-      if (settings.voiceId) {
-        const voices = window.speechSynthesis.getVoices();
-        const match = voices.find((v) => v.voiceURI === settings.voiceId);
-        if (match) utterance.voice = match;
+    if (settings.voiceId) {
+      const voices = window.speechSynthesis.getVoices();
+      const match = voices.find((v) => v.voiceURI === settings.voiceId);
+      if (match) utterance.voice = match;
+    }
+
+    let wordIndex = 0;
+    utterance.onboundary = (e) => {
+      if (e.name === "word") {
+        highlightWord(wordIndex);
+        wordIndex++;
+      }
+    };
+
+    utterance.onstart = () => {
+      isPlaying = true;
+      isPaused = false;
+      isLoading = false;
+      renderButtons("playing");
+
+      const c = getOrCreateContainer();
+      if (!c.classList.contains("vocalix-visible")) {
+        showContainerCentered();
+      } else {
+        c.classList.add("vocalix-visible");
       }
 
-      let wordIndex = 0;
-      utterance.onboundary = (e) => {
-        // Only highlight if not paused (avoid showing wrong word after resume)
-        if (e.name === "word" && !isPaused) {
-          highlightWord(wordIndex);
-          wordIndex++;
-        }
+      const entry = {
+        id: Date.now().toString(),
+        text: text.slice(0, 200),
+        url: location.href,
+        timestamp: Date.now(),
       };
+      chrome.storage.local.get("history", (r) => {
+        const history = r.history || [];
+        const updated = [entry, ...history].slice(0, 50);
+        chrome.storage.local.set({ history: updated });
+      });
+    };
 
-      utterance.onstart = () => {
-        isPlaying = true;
-        isLoading = false;
-        pendingReading = false;
-        isPaused = false;
-        renderButtons("playing");
+    utterance.onend = () => {
+      if (isPaused) return;
+      isPlaying = false;
+      isPaused = false;
+      isLoading = false;
+      cleanupHighlights();
 
-        // Save to reading history (max 50 entries)
-        const entry = {
-          id: Date.now().toString(),
-          text: text.slice(0, 200),
-          url: location.href,
-          timestamp: Date.now(),
-        };
-        chrome.storage.local.get("history", (r) => {
-          const history = r.history || [];
-          const updated = [entry, ...history].slice(0, 50);
-          chrome.storage.local.set({ history: updated });
-        });
-      };
+      const sel = window.getSelection();
+      const stillSelected =
+        sel &&
+        !sel.isCollapsed &&
+        (sel.toString().trim().length ?? 0) >= minLength;
 
-      utterance.onend = () => {
-        // Verify this is still the current utterance and not paused
-        if (currentUtterance === utterance && !isPaused) {
-          isPlaying = false;
-          isPaused = false;
-          isLoading = false;
-          pendingReading = false;
-          currentUtterance = null;
-          cleanupHighlights();
-
-          // Check if text is still selected, maybe user wants to read again
-          const sel = window.getSelection();
-          const stillSelected =
-            sel &&
-            !sel.isCollapsed &&
-            (sel.toString().trim().length ?? 0) >= minLength;
-
-          if (stillSelected) {
-            const range = sel!.getRangeAt(0);
-            const rect = range.getBoundingClientRect();
-            renderButtons("idle");
-            showContainer(rect.right, rect.bottom);
-          } else {
-            renderButtons("idle");
-            hideContainer();
-          }
-        }
-      };
-
-      utterance.onerror = (event) => {
-        console.error("Speech synthesis error:", event);
-        // Only reset if this is the current utterance and not intentionally paused
-        if (currentUtterance === utterance && !isPaused) {
-          isPlaying = false;
-          isPaused = false;
-          isLoading = false;
-          pendingReading = false;
-          currentUtterance = null;
-          renderButtons("idle");
-          cleanupHighlights();
-          hideContainer();
-          showToast("Error occurred while reading");
-        }
-      };
-
-      try {
-        window.speechSynthesis.speak(utterance);
-      } catch (error) {
-        console.error("Failed to start speech synthesis:", error);
-        resetUIState();
-        showToast("Failed to start reading");
+      if (stillSelected) {
+        const range = sel!.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+        renderButtons("idle");
+        showContainer(rect.right, rect.bottom);
+      } else {
+        renderButtons("idle");
+        hideContainer();
       }
-    });
+    };
+
+    utterance.onerror = () => {
+      if (isPaused) return;
+      isPlaying = false;
+      isPaused = false;
+      isLoading = false;
+      renderButtons("idle");
+      cleanupHighlights();
+    };
+
+    window.speechSynthesis.speak(utterance);
   });
 }
 
+function stopReading(): void {
+  window.speechSynthesis.cancel();
+  isPlaying = false;
+  isPaused = false;
+  isLoading = false;
+  renderButtons("idle");
+  hideContainer();
+  cleanupHighlights();
+}
+
+function pauseReading(): void {
+  isPaused = true;
+  window.speechSynthesis.pause();
+  renderButtons("paused");
+}
+
+function resumeReading(): void {
+  window.speechSynthesis.resume();
+  isPaused = false;
+  renderButtons("playing");
+}
+
 /**
- * Handle messages from popup and background scripts
- * Supports: READ_TEXT, STOP, PAUSE, RESUME, PAUSE_RESUME
+ * Handle messages from popup, background, and keyboard shortcuts
+ * I support read, stop, pause, resume, and toggle commands
  */
 chrome.runtime.onMessage.addListener(
   (message: { type: string; payload?: string }) => {
     if (message.type === "READ_TEXT") {
       const text = message.payload || window.getSelection()?.toString().trim();
-      if (text && text.length >= minLength) {
+      if (text) {
         lastText = text;
         startReading(text);
-      } else if (!text) {
-        showToast("No text selected");
       } else {
-        showToast(`Text must be at least ${minLength} characters`);
+        showToast("No text selected");
       }
     }
     if (message.type === "STOP") stopReading();
@@ -551,13 +494,12 @@ chrome.runtime.onMessage.addListener(
 );
 
 /**
- * Handle text selection with debounce
- * 50ms delay prevents race conditions with click events
+ * Show button when text is selected
+ * I use a 50ms delay to let the selection stabilize after mouseup
  */
 document.addEventListener("mouseup", () => {
   setTimeout(() => {
-    // Don't interfere during active reading
-    if (isPlaying || isPaused || isLoading || pendingReading) return;
+    if (isPlaying || isPaused) return;
 
     const selection = window.getSelection();
     const text = selection?.toString().trim();
@@ -583,26 +525,11 @@ document.addEventListener("mouseup", () => {
 
 /**
  * Hide container when clicking outside
- * Important: Don't hide while actively playing to avoid accidental closures
+ * I check if the click target is inside the container to avoid accidental closure
  */
 document.addEventListener("mousedown", (e) => {
   const target = e.target as HTMLElement;
-  if (
-    !target.closest("#vocalix-container") &&
-    !isPlaying &&
-    !isPaused &&
-    !isLoading
-  ) {
+  if (!target.closest("#vocalix-container") && !isPlaying && !isPaused) {
     hideContainer();
-  }
-});
-
-/**
- * Clean up speech on page unload
- * Prevents speech continuing after page navigation
- */
-window.addEventListener("beforeunload", () => {
-  if (currentUtterance) {
-    window.speechSynthesis.cancel();
   }
 });

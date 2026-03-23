@@ -67,6 +67,46 @@
                     </div>
                     <input type="checkbox" id="highlight-words" checked />
                 </div>
+                <div class="field row">
+                    <div>
+                        <label for="min-length">Minimum selection length</label>
+                        <p class="hint">
+                            Characters required before Read button appears
+                        </p>
+                    </div>
+                    <input
+                        type="number"
+                        id="min-length"
+                        min="1"
+                        max="500"
+                        value="2"
+                    />
+                </div>
+            </section>
+
+            <section class="card">
+                <h2>Wake Word</h2>
+                <div class="field row">
+                    <div>
+                        <label for="wake-word-enabled">Enable wake word</label>
+                        <p class="hint">
+                            Say the wake word to read selected text hands-free
+                        </p>
+                    </div>
+                    <input type="checkbox" id="wake-word-enabled" />
+                </div>
+                <div class="field">
+                    <label for="wake-word">Wake word</label>
+                    <input
+                        type="text"
+                        id="wake-word"
+                        placeholder="hey vocalix"
+                    />
+                    <p class="hint">
+                        Say this word/phrase to trigger reading. Default: "hey
+                        vocalix"
+                    </p>
+                </div>
             </section>
 
             <section class="card">

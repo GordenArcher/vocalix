@@ -1,9 +1,11 @@
 import { DEFAULT_SETTINGS, SpeechSettings } from "../src/types/index";
 
 /**
- * Options page elements - this is the full settings page, separate from the popup
- * I keep this more comprehensive than the popup since users can access it from extensions page
+ * Options page - full settings interface for Vocalix
+ * This page provides all configuration options including voice selection,
+ * speech parameters, and the new wake word feature for hands-free control
  */
+
 const voiceSelect = document.getElementById(
   "voice-select",
 ) as HTMLSelectElement;
@@ -18,12 +20,16 @@ const highlightWords = document.getElementById(
 const minLengthInput = document.getElementById(
   "min-length",
 ) as HTMLInputElement;
+const wakeWordEnabled = document.getElementById(
+  "wake-word-enabled",
+) as HTMLInputElement;
+const wakeWordInput = document.getElementById("wake-word") as HTMLInputElement;
 const saveBtn = document.getElementById("save-btn") as HTMLButtonElement;
 const savedMsg = document.getElementById("saved-msg") as HTMLParagraphElement;
 
 /**
- * Load saved settings from sync storage on page load
- * I merge with defaults so any new settings added in future updates don't break existing installs
+ * Load saved settings from sync storage when page opens
+ * I merge with defaults to handle any missing settings gracefully
  */
 chrome.storage.sync.get("settings", (result) => {
   const settings: SpeechSettings = {
@@ -38,14 +44,15 @@ chrome.storage.sync.get("settings", (result) => {
   autoRead.checked = settings.autoRead;
   highlightWords.checked = settings.highlightWords;
   minLengthInput.value = String(settings.minLength ?? 2);
+  wakeWordEnabled.checked = settings.wakeWordEnabled ?? false;
+  wakeWordInput.value = settings.wakeWord ?? "hey vocalix";
 
   loadVoices(settings.voiceId);
 });
 
 /**
  * Populate voice dropdown with available system voices
- * Voices aren't always immediately available, so I listen for onvoiceschanged
- * If that doesn't fire, the recursive call ensures it eventually loads
+ * Voices aren't always ready immediately, so I listen for onvoiceschanged
  */
 function loadVoices(savedVoiceId: string = ""): void {
   const voices = window.speechSynthesis.getVoices();
@@ -66,21 +73,20 @@ function loadVoices(savedVoiceId: string = ""): void {
 }
 
 /**
- * Live preview of rate and pitch values while sliders move
+ * Live preview of rate and pitch values as sliders move
  * Gives immediate feedback without needing to save first
  */
 rateInput.addEventListener("input", () => {
   rateValue.textContent = rateInput.value;
 });
-
 pitchInput.addEventListener("input", () => {
   pitchValue.textContent = pitchInput.value;
 });
 
 /**
  * Save all settings to Chrome sync storage
- * I show a temporary success message that fades out after 2 seconds
- * No need to reload voices since changes take effect on next reading
+ * I show a temporary success message that fades after 2 seconds
+ * The wake word is normalized to lowercase for case-insensitive matching
  */
 saveBtn.addEventListener("click", () => {
   const settings: SpeechSettings = {
@@ -91,6 +97,8 @@ saveBtn.addEventListener("click", () => {
     autoRead: autoRead.checked,
     highlightWords: highlightWords.checked,
     minLength: parseInt(minLengthInput.value) || 2,
+    wakeWordEnabled: wakeWordEnabled.checked,
+    wakeWord: wakeWordInput.value.trim().toLowerCase() || "hey vocalix",
   };
 
   chrome.storage.sync.set({ settings }, () => {

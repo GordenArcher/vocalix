@@ -13,6 +13,8 @@ export interface SpeechSettings {
   autoRead: boolean;
   highlightWords: boolean;
   minLength: number;
+  wakeWordEnabled: boolean;
+  wakeWord: string;
   source: "browser" | "elevenlabs" | "google";
   elevenLabsApiKey?: string;
   googleApiKey?: string;
@@ -38,5 +40,7 @@ export const DEFAULT_SETTINGS: SpeechSettings = {
   autoRead: false,
   highlightWords: true,
   minLength: 2,
+  wakeWordEnabled: false,
+  wakeWord: "hey vocalix",
   source: "browser",
 };
